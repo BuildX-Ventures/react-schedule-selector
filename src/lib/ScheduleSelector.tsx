@@ -35,6 +35,7 @@ export const GridCell = styled.div`
 `
 
 const DateCell = styled.div<{
+  blocked: boolean
   selected: boolean
   selectedColor: string
   unselectedColor: string
@@ -42,10 +43,10 @@ const DateCell = styled.div<{
 }>`
   width: 100%;
   height: 25px;
-  background-color: ${props => (props.selected ? props.selectedColor : props.unselectedColor)};
+  background: ${props => (props.blocked ? "repeating-linear-gradient(45deg,#e1e1e1,#e1e1e1 10px,#e7e7e7 10px,#e7e7e7 20px)" : props.selected ? props.selectedColor : props.unselectedColor)};
 
   &:hover {
-    background-color: ${props => props.hoveredColor};
+    background: ${props => props.hoveredColor};
   }
 `
 
@@ -303,40 +304,57 @@ export default class ScheduleSelector extends React.Component<PropsType, StateTy
     this.setState({ isTouchDragging: false })
   }
 
+  isTimeBlocked = (time: Date) => {
+    const currentDate = new Date();
+    const dayOfWeek = time.getDay();
+    return dayOfWeek === 0 || dayOfWeek === 6 || time < currentDate; // 0 for Sunday, 6 for Saturday
+  }
+
   renderDateCellWrapper = (time: Date): JSX.Element => {
-    const startHandler = () => {
-      this.handleSelectionStartEvent(time)
-    }
+    const blocked = this.isTimeBlocked(time);
 
     const selected = Boolean(this.state.selectionDraft.find(a => isSameMinute(a, time)))
-
     return (
       <GridCell
         className="rgdp__grid-cell"
         role="presentation"
         key={time.toISOString()}
         // Mouse handlers
-        onMouseDown={startHandler}
+        onMouseDown={() => {
+          if(blocked) return;
+          this.handleSelectionStartEvent(time)
+        }}
         onMouseEnter={() => {
+          if(blocked) return;
           this.handleMouseEnterEvent(time)
         }}
         onMouseUp={() => {
+          if(blocked) return;
           this.handleMouseUpEvent(time)
         }}
         // Touch handlers
         // Since touch events fire on the event where the touch-drag started, there's no point in passing
         // in the time parameter, instead these handlers will do their job using the default Event
         // parameters
-        onTouchStart={startHandler}
-        onTouchMove={this.handleTouchMoveEvent}
-        onTouchEnd={this.handleTouchEndEvent}
+        onTouchStart={() => {
+          // if(blocked) return;
+          // this.handleSelectionStartEvent(time)
+        }}
+        onTouchMove={(event) => {
+          // if(blocked) return;
+          // this.handleTouchMoveEvent(event)
+        }}
+        onTouchEnd={(event) => {
+          // if(blocked) return;
+          // this.handleTouchEndEvent();
+        }}
       >
-        {this.renderDateCell(time, selected)}
+        {this.renderDateCell(time, selected, blocked)}
       </GridCell>
     )
   }
 
-  renderDateCell = (time: Date, selected: boolean): JSX.Element => {
+  renderDateCell = (time: Date, selected: boolean, blocked: boolean): JSX.Element => {
     const refSetter = (dateCell: HTMLElement | null) => {
       if (dateCell) {
         this.cellToDate.set(dateCell, time)
@@ -347,6 +365,7 @@ export default class ScheduleSelector extends React.Component<PropsType, StateTy
     } else {
       return (
         <DateCell
+          blocked={blocked}
           selected={selected}
           ref={refSetter}
           selectedColor={this.props.selectedColor}
